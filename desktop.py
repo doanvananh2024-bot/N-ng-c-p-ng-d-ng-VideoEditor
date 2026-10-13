@@ -12,8 +12,8 @@ import os
 import subprocess
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal, QTimer, QUrl, QSettings, QPointF, QRectF, QSize, QObject, QEvent
-from PySide6.QtGui import QAction, QColor, QFont, QPixmap, QPainter, QPen, QIcon, QPolygonF
+from PySide6.QtCore import Qt, Signal, QTimer, QUrl, QSettings, QPointF, QRectF, QSize, QObject, QEvent, QIdentityProxyModel, QAbstractItemModel
+from PySide6.QtGui import QAction, QColor, QFont, QPixmap, QPainter, QPen, QIcon, QPolygonF, QPainterPath, QRegion
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer, QVideoSink
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtWidgets import (
@@ -42,20 +42,20 @@ APP_TITLE = "Video Editor Independent"
 RATIOS = {"Gốc": (0, 0), "9:16": (1080, 1920), "16:9": (1920, 1080), "1:1": (1080, 1080), "4:5": (1080, 1350), "3:4": (1080, 1440), "4:3": (1440, 1080)}
 
 STYLE = """
-QWidget { background:#252528; color:#e7e7e7; font-family:'VE UI'; font-size:12px; }
+QWidget { background:#252527; color:#e7e7e7; font-family:'VE UI'; font-size:13px; }
 QMainWindow { background:#161618; }
 QLabel { background:transparent; }
 QLabel#muted { color:#929292; }
 QLabel#title { font-size:18px; font-weight:600; }
-QFrame#topbar { background:#252528; border:1px solid #303030; border-radius:9px; }
-QFrame#gridPanel { background:#252528; border:1px solid #303030; border-radius:9px; }
-QFrame#batchBar { background:#252528; border:1px solid #303030; border-radius:9px; }
+QFrame#topbar { background:#252527; border:0; border-radius:12px; }
+QFrame#gridPanel { background:#252527; border:0; border-radius:12px; }
+QFrame#batchBar { background:#252527; border:0; border-radius:12px; }
 QFrame#mediaCard { background:#252525; border:1px solid #343434; border-radius:4px; }
 QFrame#mediaCard[current="true"] { border:2px solid #00b4d8; }
 QFrame#section { background:#353535; border:0; border-radius:9px; }
 QFrame#sidebar { background:#191919; border:1px solid #303030; border-radius:9px; }
 QLabel#sectionTitle { font-weight:600; color:#00b4d8; font-size:12px; }
-QLabel#emptyTitle { color:#8c8c8c; font-size:14px; }
+QLabel#emptyTitle { color:#737373; font-size:13px; }
 QPushButton,QToolButton { background:#2a2a2a; border:1px solid #404040; border-radius:5px; padding:6px 10px; }
 QPushButton:hover,QToolButton:hover { background:#343434; border-color:#626262; }
 QPushButton:pressed,QToolButton:pressed { background:#393939; }
@@ -75,14 +75,15 @@ QLineEdit,QSpinBox,QDoubleSpinBox,QComboBox,QFontComboBox,QTextEdit {
  background:#181818; border:1px solid #3c3c3c; border-radius:4px; padding:5px 6px; selection-background-color:#04798a;
 }
 QComboBox::drop-down { border:0; width:20px; }
+QComboBox::down-arrow {image:url(__DROPDOWN_ICON__);width:10px;height:7px;}
 QComboBox QAbstractItemView { background:#232323; border:1px solid #454545; selection-background-color:#087486; padding:4px; }
 QSpinBox::up-button,QDoubleSpinBox::up-button,QSpinBox::down-button,QDoubleSpinBox::down-button { width:15px; border:0; }
 QCheckBox { spacing:7px; background:transparent; }
 QCheckBox::indicator { width:14px; height:14px; border:1px solid #5b5b5b; border-radius:3px; background:#171717; }
 QCheckBox::indicator:checked { background:#04bed6; border-color:#04bed6; }
 QCheckBox::indicator:hover { border-color:#05bfd6; }
-QTabWidget#rightTabs { background:#252528; border:1px solid #303030; border-radius:9px; }
-QTabWidget::pane { border:0; background:#252528; }
+QTabWidget#rightTabs { background:#252527; border:0; border-radius:12px; }
+QTabWidget::pane { border:0; background:#252527; }
 QTabBar::tab { background:#363636; color:#a0a0a0; border:0; padding:12px 8px; }
 QTabBar::tab:selected { color:#00b4d8; background:#363636; border-bottom:2px solid #00b4d8; }
 QTabWidget#pipelineSubtabs QTabBar::tab {font-size:11px;padding:0;}
@@ -95,7 +96,7 @@ QFrame#mediaCardFooter {background:#191919;border:0;}
 QPushButton#cardAction,QPushButton#mediaPlay {padding:0;border:0;border-radius:4px;background:transparent;font-size:12px;}
 QPushButton#cardAction:hover,QPushButton#mediaPlay:hover {background:#343434;}
 QComboBox#cardAspectRatio {padding:0 4px;font-size:11px;}
-QLabel#ownerBadge {background:#123b2b;color:#6cdaa3;border:1px solid #24593f;border-radius:4px;padding:3px 8px;font-size:11px;}
+QLabel#ownerBadge {background:#102e23;color:#16cf65;border:1px solid #145437;border-radius:11px;padding:2px 10px;font-size:11px;font-weight:bold;}
 QTabBar::tab:hover { color:#e7e7e7; }
 QScrollArea { border:0; background:transparent; }
 QScrollBar:vertical { background:#1a1a1a; width:7px; margin:2px; }
@@ -116,6 +117,25 @@ QMenu::item { padding:7px 24px; }
 QMenu::item:selected { background:#165962; }
 QStatusBar { color:#909090; background:#0e0e0e; font-size:11px; }
 QToolTip { background:#292929; color:#ededed; border:1px solid #555555; padding:6px; }
+QPushButton#topAction {background:transparent;border:1px solid #393939;border-radius:6px;padding:2px 16px;}
+QPushButton#topAction:hover {background:#343434;border-color:#626262;}
+QToolButton#projectMenu {background:#f04448;border:0;border-radius:6px;color:white;font-weight:bold;padding:3px 14px;}
+QPushButton#addVideo {background:#19c65a;border:0;color:white;font-weight:bold;}
+QPushButton#addVideo:hover {background:#20d969;}
+QPushButton#runTranslate {background:#3466ae;border:0;}
+QPushButton#runDub,QPushButton#primary {background:#008ca7;border:0;color:white;}
+QPushButton#runRecognize:disabled {background:#2b2b2d;color:#626264;border-color:#2b2b2d;}
+QPushButton#runTranslate:disabled {background:#2e4e7b;color:#777b80;}
+QPushButton#runDub:disabled,QPushButton#primary:disabled {background:#155c6b;color:#73777a;}
+QPushButton#stopBatch {background:transparent;border:1px solid #393939;color:#eeeeee;}
+QPushButton#stopBatch:disabled {color:#626264;}
+QFrame#batchBar QPushButton {padding:2px 12px;border-radius:6px;min-height:20px;}
+QTabWidget#pipelineSubtabs QComboBox,QTabWidget#pipelineSubtabs QLineEdit {background:#252527;border:0;border-radius:8px;padding:3px 9px;min-height:23px;font-size:13px;}
+QTabWidget#pipelineSubtabs QComboBox::drop-down {width:22px;}
+QLabel#pipelineFieldLabel {color:#a0a0a0;font-size:13px;}
+QPushButton[sectionHeading=true] {text-align:left;background:transparent;border:0;padding:0;color:#00b4d8;font-size:13px;font-weight:bold;}
+QLabel#pipelineHelp {color:#92999e;background:#303436;border-radius:7px;font-size:11px;}
+
 """
 
 
@@ -163,7 +183,13 @@ def line_icon(kind, color="#cccccc", size=18):
         painter.drawLine(QPointF(3, 16), QPointF(15, 16))
         painter.drawLine(QPointF(15, 12), QPointF(15, 16))
     elif kind == "folder":
-        painter.drawPolyline(QPolygonF([QPointF(2, 15), QPointF(2, 4), QPointF(7, 4), QPointF(9, 6), QPointF(16, 6), QPointF(16, 15), QPointF(2, 15)]))
+        painter.setPen(QPen(QColor("#101012"), 1.1))
+        painter.setBrush(QColor("#3694b7"))
+        painter.drawRoundedRect(QRectF(2.2, 3, 4.5, 4), 1, 1)
+        painter.setBrush(QColor("#f3b931"))
+        painter.drawPolygon(QPolygonF([QPointF(2, 5), QPointF(8, 5), QPointF(9, 6), QPointF(16, 6), QPointF(15, 15), QPointF(2, 15)]))
+        painter.setBrush(QColor("#ffda70"))
+        painter.drawPolygon(QPolygonF([QPointF(4, 6), QPointF(17, 6), QPointF(14.8, 15), QPointF(2, 15)]))
     elif kind == "add":
         painter.drawLine(QPointF(9, 3), QPointF(9, 15))
         painter.drawLine(QPointF(3, 9), QPointF(15, 9))
@@ -193,6 +219,25 @@ def line_icon(kind, color="#cccccc", size=18):
     return QIcon(canvas)
 
 
+class DisplayLabels(QIdentityProxyModel):
+    """Translate presentation labels without changing stored encoder/language IDs."""
+    def __init__(self, source, labels, parent):
+        super().__init__(parent)
+        self.labels = labels
+        self.setSourceModel(source)
+
+    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+        value = super().data(index, role)
+        if role == Qt.ItemDataRole.DisplayRole:
+            return self.labels.get(value, value)
+        return value
+
+    def match(self, start, role, value, hits=1, flags=Qt.MatchFlag.MatchStartsWith | Qt.MatchFlag.MatchWrap):
+        # QIdentityProxyModel delegates matching to the untranslated source.
+        # Use the base algorithm so QComboBox.findText sees displayed labels.
+        return QAbstractItemModel.match(self, start, role, value, hits, flags)
+
+
 class ControlStateBinding(QObject):
     """Keep a sidebar control consistent with its full editor counterpart."""
     def __init__(self, source, control):
@@ -218,18 +263,23 @@ class ReferenceSwitch(QCheckBox):
         super().__init__(parent)
         self.setObjectName(name)
         self.setFixedSize(36, 20)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setAccessibleName(source.text() or name)
         self.setChecked(source.isChecked())
         self.toggled.connect(source.setChecked)
         source.toggled.connect(self.setChecked)
         self.toggled.connect(lambda _checked: self.update())
         self.binding = ControlStateBinding(source, self)
 
+    def hitButton(self, position):
+        return self.rect().contains(position)
+
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         if not self.isEnabled():
             painter.setOpacity(.4)
-        color = QColor("#00b4d8" if self.isChecked() else "#252528")
+        color = QColor("#00b4d8" if self.isChecked() else "#252527")
         painter.setPen(QPen(color if self.isChecked() else QColor("#404040"), 1))
         painter.setBrush(color)
         painter.drawRoundedRect(QRectF(.5, .5, 35, 19), 10, 10)
@@ -280,6 +330,22 @@ class SidebarTabBar(QTabBar):
         painter.end()
 
 
+class RoundedSidebar(QTabWidget):
+    """Clip child panes to the sidebar's rounded lower corners."""
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        outline = QPainterPath()
+        width, height, radius = self.width(), self.height(), 12
+        outline.moveTo(0, 0)
+        outline.lineTo(width, 0)
+        outline.lineTo(width, height-radius)
+        outline.quadTo(width, height, width-radius, height)
+        outline.lineTo(radius, height)
+        outline.quadTo(0, height, 0, height-radius)
+        outline.closeSubpath()
+        self.setMask(QRegion(outline.toFillPolygon().toPolygon()))
+
+
 class SegmentedTabBar(QTabBar):
     """A 32 px segmented selector with the surrounding 10 px pane spacing."""
     def __init__(self, parent=None):
@@ -308,10 +374,10 @@ class SegmentedTabBar(QTabBar):
             active = index == self.currentIndex()
             if active:
                 painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(QColor("#252528" if self.parentWidget() and self.parentWidget().objectName()=="componentViews" else "#363636"))
+                painter.setBrush(QColor("#252527" if self.parentWidget() and self.parentWidget().objectName()=="componentViews" else "#363636"))
                 painter.drawRoundedRect(rect,3,3)
             font = QFont(self.font())
-            font.setPixelSize(12)
+            font.setPixelSize(13)
             font.setBold(active)
             painter.setFont(font)
             painter.setPen(QColor("#e7e7e7" if active else "#929292"))
@@ -668,7 +734,7 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
     """Real editing application with a batch-first desktop workspace."""
 
     def __init__(self, testing=False):
-        from ui_theme import load_ui_fonts
+        from ui_theme import load_ui_fonts, ui_font_family
         load_ui_fonts()
         self._shell_ready = False
         self._selected_paths = set()
@@ -685,7 +751,9 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
         self._batch_errors = {}
         self._running_sources = []
         super().__init__(testing=testing)
-        self.setStyleSheet(STYLE)
+        from ui_theme import font_directory
+        dropdown_icon = (font_directory().parent / "ui_icons" / "chevron-down.svg").as_posix()
+        self.setStyleSheet(STYLE.replace("'VE UI'", "'" + ui_font_family() + "'").replace("__DROPDOWN_ICON__", '"' + dropdown_icon + '"'))
         self.setWindowTitle(APP_TITLE)
         self.resize(1600, 920)
         self.setMinimumSize(1120, 690)
@@ -694,6 +762,8 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
         self.refresh_scenarios()
         self.set_language(str(self.prefs.value("ui_language", "vi")))
         self.render_library()
+        self.refresh_voice_display()
+        self._refresh_job_status()
 
     def build(self):
         # Keep the owned editor's full tools available as secondary views.
@@ -755,14 +825,16 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
         row.setContentsMargins(10, 0, 10, 0)
         row.setSpacing(6)
         actions = [
-            ("Thiết lập", "Settings", self.open_settings, "openSettings", "settings"),
+            ("Thiết Lập", "Settings", self.open_settings, "openSettings", "settings"),
             ("Kịch bản", "Scenarios", self.open_scenarios, "openPrompts", "prompt"),
             ("Cắt ghép", "Cut / join", self.open_tools, "openMiniTools", "tools"),
             ("Tải xuống", "Downloads", self.open_downloads, "openDownloads", "download"),
             ("Điều khoản", "Terms", self.show_owner, "openTerms", "prompt"),
         ]
         for vi, en, function, name, icon in actions:
-            button = _button(vi, function, "subtle")
+            button = _button(vi, function, "topAction")
+            button.setFixedHeight(25)
+            button.setMinimumWidth(121)
             button.setIcon(line_icon(icon))
             button.setProperty("qaName", name)
             button.setAccessibleName(name)
@@ -770,7 +842,7 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
         row.addStretch()
         version = QLabel("v1.3.2")
         version.setObjectName("muted")
-        version.setStyleSheet("font-size:11px;color:#929292;")
+        version.setStyleSheet("font-size:11px;color:#00b4d8;font-weight:bold;")
         version.setToolTip(APP_TITLE)
         row.addWidget(version)
         language = QFrame()
@@ -786,12 +858,14 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
             languages.addWidget(button)
         self.vi_button.setChecked(True)
         row.addWidget(language)
-        owner = QLabel("Chủ sở hữu")
+        owner = QLabel("CHỦ SỞ HỮU")
         owner.setObjectName("ownerBadge")
+        owner.setFixedHeight(23)
         owner.setToolTip("Quyền chủ sở hữu trên máy cục bộ")
         row.addWidget(owner)
         menu_button = QToolButton()
         menu_button.setObjectName("projectMenu")
+        menu_button.setFixedHeight(25)
         menu_button.setText("Tài khoản")
         menu_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
         menu_button.setToolTip("Dự án và công cụ")
@@ -825,6 +899,8 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
 
     def _build_workspace(self):
         workspace = QWidget()
+        workspace.setObjectName("workspace")
+        workspace.setStyleSheet("QWidget#workspace {background:#161618;}")
         layout = QHBoxLayout(workspace)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
@@ -857,14 +933,15 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
         empty_column = QVBoxLayout(empty)
         empty_column.addStretch()
         glyph = QLabel()
-        glyph.setPixmap(line_icon("folder", "#3b3b3b", 48).pixmap(48, 48))
+        glyph.setPixmap(line_icon("folder", "#ffda70", 52).pixmap(52, 52))
         glyph.setAlignment(Qt.AlignmentFlag.AlignCenter)
         glyph.setStyleSheet("font-size:64px;color:#444444;")
         empty_column.addWidget(glyph)
-        empty_hint = QLabel("Kéo thả video vào đây hoặc nhấn Thêm video")
+        empty_hint = QLabel("Kéo thả video vào đây hoặc nhấn “Thêm video”.")
         empty_hint.setObjectName("emptyTitle")
         empty_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._translated(empty_hint, "Kéo thả video vào đây hoặc nhấn Thêm video", "Drag video files here or click Add video")
+        self._translated(empty_hint, "Kéo thả video vào đây hoặc nhấn “Thêm video”.", "Drag video files here or click Add video")
+        empty_column.setSpacing(12)
         empty_column.addWidget(empty_hint)
         empty_column.addStretch()
         self.grid_views.addWidget(empty)
@@ -888,7 +965,7 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
         options.insertWidget(2, self.video_count)
         layout.addWidget(self.grid_panel, 1)
 
-        self.right_tabs = QTabWidget()
+        self.right_tabs = RoundedSidebar()
         self.right_tabs.setObjectName("rightTabs")
         self.right_tabs.setFixedWidth(300)
         self.right_tabs.setTabBar(SidebarTabBar())
@@ -911,7 +988,7 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
         body = QWidget()
         column = QVBoxLayout(body)
         column.setContentsMargins(10, 0, 10, 12)
-        column.setSpacing(8)
+        column.setSpacing(10)
         scroll.setWidget(body)
         return scroll, column
 
@@ -966,49 +1043,80 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
             self.mute.setChecked(not self.source_audio_enabled.isChecked())
             self.mark_dirty()
 
-    def _audio_section(self, column, title):
+    def _audio_section(self, column, title, *, name="", expanded=True, toggle=None):
         frame = QFrame()
-        frame.setObjectName("audioReferenceSection")
-        frame.setStyleSheet("QFrame#audioReferenceSection {background:#353535;border:0;border-radius:9px;} QLabel {background:transparent;}")
+        frame.setObjectName(name or "audioReferenceSection")
+        frame.setProperty("referenceSection", True)
+        frame.setStyleSheet("QFrame[referenceSection=true] {background:#353535;border:0;border-radius:9px;} QLabel {background:transparent;}")
         layout = QVBoxLayout(frame)
-        layout.setContentsMargins(10, 6, 10, 10)
-        layout.setSpacing(4)
+        layout.setContentsMargins(12, 8, 12, 12)
+        layout.setSpacing(8)
         header = QHBoxLayout()
-        pipeline_header = title in ("Giọng đọc","Video gốc","Giọng lồng")
-        heading = QPushButton(title if pipeline_header else "▾  "+title)
+        heading = QPushButton(title)
+        heading.setObjectName("pipelineHeading")
+        heading.setProperty("sectionHeading", True)
         heading.setCheckable(True)
-        heading.setChecked(True)
-        heading.setStyleSheet("QPushButton {text-align:left;background:transparent;border:0;padding:0;color:#00bdd5;font-size:13px;font-weight:600;}")
+        heading.setChecked(expanded)
+        heading.setCursor(Qt.CursorShape.PointingHandCursor)
         heading.setFixedHeight(26)
         header.addWidget(heading, 1)
-        if pipeline_header:
-            arrow = QLabel("▾")
-            arrow.setStyleSheet("color:#969696;font-size:10px;")
-            header.addWidget(arrow)
+        if toggle is not None:
+            header.addWidget(toggle)
+        arrow = QLabel("▾" if expanded else "▸")
+        arrow.setStyleSheet("color:#969696;font-size:10px;")
+        header.addWidget(arrow)
         layout.addLayout(header)
         body = QWidget()
         body.setObjectName("audioSectionBody")
         body.setStyleSheet("QWidget#audioSectionBody {background:transparent;}")
         content = QVBoxLayout(body)
         content.setContentsMargins(0, 0, 0, 0)
-        content.setSpacing(4)
+        content.setSpacing(8)
         layout.addWidget(body)
+        body.setVisible(expanded)
         heading.toggled.connect(body.setVisible)
-        if pipeline_header:
-            heading.toggled.connect(lambda checked: arrow.setText("▾" if checked else "▸"))
-        else:
-            heading.toggled.connect(lambda checked: heading.setText(("▾  " if checked else "▸  ")+title))
-        content._header = header
+        heading.toggled.connect(lambda checked: arrow.setText("▾" if checked else "▸"))
+        content._header, content._heading, content._body = header, heading, body
         column.addWidget(frame)
         return content
+
+    def _pipeline_field(self, column, title, source, name="", *, labels=None, direct=False):
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        caption = QLabel(title)
+        caption.setObjectName("pipelineFieldLabel")
+        caption.setFixedWidth(104)
+        caption.setWordWrap(True)
+        row.addWidget(caption)
+        control = source if direct else self._clone(source, name, labels=labels)
+        if direct:
+            control.setMinimumWidth(0)
+            control.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        control._field_caption = caption
+        control.setMinimumHeight(29)
+        row.addWidget(control, 1)
+        column.addLayout(row)
+        return control
+
+    def _pipeline_toggle(self, column, title, source, name):
+        row = QHBoxLayout()
+        caption = QLabel(title)
+        caption.setObjectName("pipelineFieldLabel")
+        caption.setWordWrap(True)
+        row.addWidget(caption, 1)
+        control = ReferenceSwitch(source, name)
+        row.addWidget(control)
+        column.addLayout(row)
+        return control
 
     def _audio_slider(self, column, title, source, name, unit="%", hint=""):
         row = QHBoxLayout()
         row.setSpacing(7)
-        label = QLabel(title)
+        label = ElidedLabel(title)
+        label.setToolTip(title)
         label.setSizePolicy(QSizePolicy.Policy.Fixed,QSizePolicy.Policy.Preferred)
         label.setStyleSheet("color:#9d9d9d;font-size:13px;")
-        label.setFixedWidth(112 if hint else 106)
+        label.setFixedWidth(104)
         row.addWidget(label)
         slider = ReferenceSlider(Qt.Orientation.Horizontal)
         slider.setObjectName(name + "Slider")
@@ -1017,6 +1125,8 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
         scale = 100 if isinstance(source, QDoubleSpinBox) else 1
         display = 100 if unit == "%" else 1
         slider.setRange(round(source.minimum()*scale), round(source.maximum()*scale))
+        slider.setSingleStep(max(1, round(source.singleStep()*scale)))
+        slider.setPageStep(max(1, round(source.singleStep()*scale*5)))
         slider.setValue(round(source.value()*scale))
         slider.setStyleSheet("QSlider {background:transparent;} QSlider::groove:horizontal {height:4px;border:0;background:#28636c;border-radius:2px;} QSlider::sub-page:horizontal {background:#00b4ce;border-radius:2px;} QSlider::handle:horizontal {width:13px;background:#00b4ce;border:0;border-radius:7px;margin:-5px 0;}")
         row.addWidget(slider, 1)
@@ -1029,11 +1139,13 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
         badge.setSuffix(unit)
         badge.setValue(source.value()*display)
         badge.setAlignment(Qt.AlignmentFlag.AlignRight)
-        badge.setFixedSize(53 if unit in ("s", "x", "ms") else 44, 23)
-        badge.setStyleSheet("QDoubleSpinBox {background:#252528;border:0;border-radius:3px;padding:1px 4px;color:#00c6df;font-size:12px;font-weight:600;}")
+        badge.setFixedSize(53 if unit in ("s", "x", "ms", " câu") else 34, 23)
+        badge.setStyleSheet("QDoubleSpinBox {background:#252527;border:0;border-radius:3px;padding:1px 4px;color:#00c6df;font-size:12px;font-weight:600;}")
         row.addWidget(badge)
-        slider.valueChanged.connect(lambda value: source.setValue(value/scale))
-        badge.valueChanged.connect(lambda value: source.setValue(value/display))
+        slider.valueChanged.connect(lambda value: source.setValue(value/scale if isinstance(source, QDoubleSpinBox) else value))
+        slider._source_binding = ControlStateBinding(source, slider)
+        badge._source_binding = ControlStateBinding(source, badge)
+        badge.valueChanged.connect(lambda value: source.setValue(value/display if isinstance(source, QDoubleSpinBox) else round(value/display)))
         def sync(value):
             slider.blockSignals(True); badge.blockSignals(True)
             slider.setRange(round(source.minimum()*scale),round(source.maximum()*scale))
@@ -1043,15 +1155,20 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
         source.valueChanged.connect(sync)
         if hint:
             help_label = QLabel("?")
-            help_label.setFixedWidth(12)
+            help_label.setFixedSize(12, 16)
+            help_label.setObjectName("pipelineHelp")
+            help_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             help_label.setToolTip(hint)
             help_label.setStyleSheet("color:#9c9c9c;font-size:12px;")
             row.addWidget(help_label)
         column.addLayout(row)
         badge._field_slider = slider
+        badge._field_caption = label
+        badge._field_row = row
+        badge.sync_from_source = sync
         return badge
 
-    def _clone(self, source, name=""):
+    def _clone(self, source, name="", labels=None):
         """Bind a compact sidebar control to the full editor control."""
         if isinstance(source, QFontComboBox):
             control = QFontComboBox()
@@ -1062,7 +1179,7 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
             control = QComboBox()
             # Share item roles and availability as well as displayed labels.
             # Export format changes can disable incompatible codec items.
-            control.setModel(source.model())
+            control.setModel(DisplayLabels(source.model(), labels, control) if labels else source.model())
             control.setModelColumn(source.modelColumn())
             control.setEditable(source.isEditable())
             control.setCurrentIndex(source.currentIndex())
@@ -1175,97 +1292,110 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
         self.worker_controls = {}
         scroll, column = self._scroll_tab()
         self.pipeline_tabs.addTab(scroll, "Phụ đề")
-        subtitles = self._section(column, "Trích phụ đề")
-        subtitles.addWidget(self._clone(self.pipe_recognize, "pipelineRecognize"))
-        self._field(subtitles, "Phương pháp", self.pipe_method, "recognitionMethod")
-        self._whisper_field = self._field(subtitles, "Whisper", self.pipe_model, "whisperModel")
-        self.recognition_device=QComboBox()
-        for label,value in (("Tự động","auto"),("GPU NVIDIA","cuda"),("CPU","cpu")): self.recognition_device.addItem(label,value)
-        self._field(subtitles,"Thiết bị",self.recognition_device,"recognitionDevice")
-        self.recognition_batch_size=QSpinBox()
-        self.recognition_batch_size.setRange(1,12); self.recognition_batch_size.setValue(1)
-        self._field(subtitles,"Đoạn song song",self.recognition_batch_size,"recognitionBatch")
-        self._field(subtitles, "Tiếng nguồn", self.pipe_source, "sourceLanguage")
-        self._ocr_language_field = self._field(subtitles, "OCR", self.ocr_language, "ocrLanguage")
-        self._ocr_interval_field = self._field(subtitles, "Lấy mẫu (s)", self.ocr_interval)
+        column.setContentsMargins(10, 10, 10, 12)
+        languages = {"auto": "Tự động", "vi": "Tiếng Việt", "en": "Tiếng Anh",
+                     "zh": "Tiếng Trung", "zh-CN": "Tiếng Trung", "ja": "Tiếng Nhật",
+                     "ko": "Tiếng Hàn", "fr": "Tiếng Pháp", "th": "Tiếng Thái"}
+        subtitles = self._audio_section(column, "Phụ đề", name="subtitleSection",
+                                       toggle=ReferenceSwitch(self.pipe_recognize, "pipelineRecognize"))
+        self._pipeline_field(subtitles, "Trích phụ đề", self.pipe_method, "recognitionMethod")
+        self._pipeline_field(subtitles, "Ngôn ngữ gốc", self.pipe_source, "sourceLanguage", labels=languages)
         recognition_workers = QSpinBox()
-        recognition_workers.setRange(1,2)
+        recognition_workers.setRange(1, 2)
         recognition_workers.setValue(1)
         recognition_workers.setToolTip("Giới hạn 1–2 mô hình cục bộ chạy đồng thời để kiểm soát bộ nhớ.")
         self.worker_controls["recognition_workers"] = recognition_workers
-        self._field(subtitles,"Luồng trích phụ đề",recognition_workers,"recognition_workers")
-        self.pipe_method.currentIndexChanged.connect(self._show_recognition_method)
-        self._show_recognition_method()
-        subtools = _button("Sửa phụ đề gốc / bản dịch…", lambda: self.navigate(3))
-        subtitles.addWidget(subtools)
+        self._audio_slider(subtitles, "Luồng song song", recognition_workers, "recognition_workers",
+                           unit="", hint=recognition_workers.toolTip())
         self.sub_lead = QDoubleSpinBox()
         self.sub_lead.setRange(0, .5)
         self.sub_lead.setDecimals(2)
         self.sub_lead.setSingleStep(.05)
         self.sub_lead.setObjectName("subtitleLead")
-        self._field(subtitles, "Hiện sớm (s)", self.sub_lead)
+        self._audio_slider(subtitles, "Sub hiện sớm", self.sub_lead, "subtitleLeadControl", unit="s",
+                           hint="Hiển thị phụ đề sớm hơn mốc gốc theo số giây đã chọn.")
+        recognition = self._audio_section(column, "Thiết lập nhận dạng", expanded=False, name="recognitionOptions")
+        self._whisper_field = self._pipeline_field(recognition, "Whisper", self.pipe_model, "whisperModel")
+        self.recognition_device = QComboBox()
+        for label, value in (("Tự động", "auto"), ("GPU NVIDIA", "cuda"), ("CPU", "cpu")):
+            self.recognition_device.addItem(label, value)
+        self._pipeline_field(recognition, "Thiết bị", self.recognition_device, "recognitionDevice")
+        self.recognition_batch_size = QSpinBox()
+        self.recognition_batch_size.setRange(1, 12)
+        self.recognition_batch_size.setValue(1)
+        self._audio_slider(recognition, "Đoạn song song", self.recognition_batch_size, "recognitionBatch", unit="")
+        self._ocr_language_field = self._pipeline_field(recognition, "OCR", self.ocr_language, "ocrLanguage")
+        self._ocr_interval_field = self._pipeline_field(recognition, "Lấy mẫu (s)", self.ocr_interval)
+        self.pipe_method.currentIndexChanged.connect(self._show_recognition_method)
+        self._show_recognition_method()
+        recognition.addWidget(_button("Sửa phụ đề gốc / bản dịch…", lambda: self.navigate(3)))
         column.addStretch()
 
         scroll, column = self._scroll_tab()
         self.pipeline_tabs.addTab(scroll, "Dịch thuật")
-        translate = self._section(column, "Dịch phụ đề")
-        translate.addWidget(self._clone(self.pipe_translate, "pipelineTranslate"))
-        self._field(translate, "Ngôn ngữ đích", self.pipe_target, "targetLanguage")
-        self.provider_display = QLabel("Google Translate")
+        column.setContentsMargins(10, 10, 10, 12)
+        translate = self._audio_section(column, "Dịch thuật", name="translationSection",
+                                       toggle=ReferenceSwitch(self.pipe_translate, "pipelineTranslate"))
+        self._pipeline_field(translate, "Ngôn ngữ đích", self.pipe_target, "targetLanguage", labels=languages)
+        self.pipe_scenario = QComboBox()
+        self.pipe_scenario.setObjectName("translationScenario")
+        self.pipe_scenario.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.pipe_scenario.setMinimumContentsLength(0)
+        self.pipe_scenario.currentIndexChanged.connect(self._scenario_changed)
+        self._pipeline_field(translate, "Kịch bản", self.pipe_scenario, direct=True)
+
+        translation_tools = self._audio_section(column, "Công cụ", name="translationTools")
+        self.provider_display = QLabel("Google Translate", container)
         self.provider_display.setObjectName("translationProvider")
-        self.provider_display.setStyleSheet("color:#05bfd6;font-size:11px;")
-        translate.addWidget(self.provider_display)
+        self.provider_display.hide()
         self.pipe_provider = QComboBox()
         self.pipe_provider.setObjectName("providerSelect")
-        for label, provider in [("Google Translate", "google")]+[(data["label"],key) for key,data in providers.PROVIDERS.items()]:
+        for label, provider in [("Google Translate", "google")]+[(data["label"], key) for key, data in providers.PROVIDERS.items()]:
             self.pipe_provider.addItem(label, provider)
         self.pipe_provider.currentIndexChanged.connect(self._provider_changed)
-        translate.addWidget(self.pipe_provider)
+        self._pipeline_field(translation_tools, "Công cụ", self.pipe_provider, direct=True)
         self.translation_model = QComboBox()
         self.translation_model.setObjectName("translationModel")
         self.translation_model.setEditable(True)
         self.translation_model.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         self.translation_model.setMinimumContentsLength(0)
-        self.translation_model.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
-        self.translation_model.setPlaceholderText("Chọn mô hình từ nhà cung cấp")
+        self.translation_model.setPlaceholderText("Chọn mô hình")
         self.translation_model.currentTextChanged.connect(self._translation_model_changed)
-        translate.addWidget(self.translation_model)
-        self.refresh_models_button = _button("Tải danh sách mô hình", self.fetch_translation_models)
-        translate.addWidget(self.refresh_models_button)
-        self.pipe_scenario = QComboBox()
-        self.pipe_scenario.setObjectName("translationScenario")
-        self.pipe_scenario.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
-        self.pipe_scenario.setMinimumContentsLength(0)
-        self.pipe_scenario.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
-        self.pipe_scenario.currentIndexChanged.connect(self._scenario_changed)
-        translate.addWidget(self.pipe_scenario)
-        translate.addWidget(_button("Chọn kịch bản dịch…", self.open_scenarios))
-        translate.addWidget(_button("Nhà cung cấp / API…", self.open_settings))
-        translate.addWidget(self._clone(self.pipe_bilingual, "bilingualCaptions"))
-        self.context_frames = QCheckBox("Ảnh ngữ cảnh · Khung đầu video")
+        self._pipeline_field(translation_tools, "Mô hình", self.translation_model, direct=True)
+
+        options = self._audio_section(column, "Tùy chọn", name="translationOptions")
+        self.context_frames = QCheckBox("Kèm ảnh ngữ cảnh", container)
         self.context_frames.setObjectName("translationImageContext")
         self.context_frames.setToolTip("Gửi khung hình đầu của từng video cùng phụ đề. Mô hình đã chọn cần hỗ trợ nhận ảnh.")
-        self.context_frames.toggled.connect(lambda value:self._set_translation_option("image_context",value))
-        translate.addWidget(self.context_frames)
+        self.context_frames.toggled.connect(lambda value: self._set_translation_option("image_context", value))
+        self.context_frames.hide()
+        self.context_switch = self._pipeline_toggle(options, "Kèm ảnh ngữ cảnh", self.context_frames, "translationImageContextSwitch")
         self.batch_request = QSpinBox()
-        self.batch_request.setRange(5,500)
+        self.batch_request.setRange(5, 500)
         self.batch_request.setSingleStep(5)
         self.batch_request.setValue(40)
-        self.batch_request.valueChanged.connect(lambda value:self._set_translation_option("batch_size",value))
-        self._field(translate,"Câu mỗi yêu cầu",self.batch_request,"translationBatchSize")
+        self.batch_request.valueChanged.connect(lambda value: self._set_translation_option("batch_size", value))
+        self.translation_batch_control = self._audio_slider(options, "Số câu mỗi lượt", self.batch_request, "translationBatchSize", unit=" câu")
         self.request_workers = QSpinBox()
-        self.request_workers.setRange(1,5)
+        self.request_workers.setRange(1, 5)
         self.request_workers.setValue(1)
-        self.request_workers.valueChanged.connect(lambda value:self._set_translation_option("translate_workers",value))
-        self._field(translate,"Yêu cầu song song",self.request_workers,"translationWorkers")
+        self.request_workers.valueChanged.connect(lambda value: self._set_translation_option("translate_workers", value))
+        self.translation_workers_control = self._audio_slider(options, "Luồng song song", self.request_workers, "translationWorkers", unit="")
+        provider_options = self._audio_section(column, "Thiết lập dịch", expanded=False, name="translationSettings")
+        self.refresh_models_button = _button("Tải danh sách mô hình", self.fetch_translation_models)
+        provider_options.addWidget(self.refresh_models_button)
+        provider_options.addWidget(_button("Chọn kịch bản dịch…", self.open_scenarios))
+        provider_options.addWidget(_button("Nhà cung cấp / API…", self.open_settings))
+        provider_options.addWidget(self._clone(self.pipe_bilingual, "bilingualCaptions"))
         column.addStretch()
 
         scroll, column = self._scroll_tab()
         self.pipeline_tabs.addTab(scroll, "Lồng tiếng")
+        column.setContentsMargins(10, 10, 10, 12)
         voice = self._audio_section(column, "Giọng đọc")
         voice_header = voice._header
         dub_toggle = ReferenceSwitch(self.pipe_dub,"pipelineDub")
-        voice_header.addWidget(dub_toggle)
+        voice_header.insertWidget(voice_header.count()-1, dub_toggle)
         voice_row = QHBoxLayout()
         voice_row.setSpacing(8)
         voice_caption = QLabel("Giọng")
@@ -1276,7 +1406,7 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
         self.voice_select_button.setObjectName("pipelineVoice")
         self.voice_select_button.setFixedHeight(36)
         self.voice_select_button.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Fixed)
-        self.voice_select_button.setStyleSheet("QPushButton {padding:0;background:#252528;border:1px solid #3c3c3c;border-radius:4px;} QPushButton:hover {background:#303030;border-color:#00b4d8;}")
+        self.voice_select_button.setStyleSheet("QPushButton {padding:0;background:#252527;border:1px solid #3c3c3c;border-radius:4px;} QPushButton:hover {background:#303030;border-color:#00b4d8;}")
         selected_voice = QHBoxLayout(self.voice_select_button)
         selected_voice.setContentsMargins(10,0,10,0)
         selected_voice.setSpacing(6)
@@ -1326,22 +1456,23 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
         self.pipe_separate.setChecked(True)
         self.separation_location.currentIndexChanged.connect(lambda:self.pipe_separate.setChecked(bool(self.separation_location.currentData())))
         self.pipe_separate.toggled.connect(lambda value:self.separation_location.setCurrentIndex(1 if value else 0))
-        self._field(voice,"Tách giọng",self.separation_location,"separateOriginalVoice")
+        self._pipeline_field(voice,"Tách giọng",self.separation_location,"separateOriginalVoice")
         self.separation_mode = QComboBox()
         self.separation_mode.addItem("Cơ bản","vocals")
         self.separation_mode.addItem("Chi tiết","stems")
         self.separation_mode.setCurrentIndex(1)
         self.separation_mode.currentIndexChanged.connect(lambda:self._choose_audio_detail("A0") if getattr(self,"_audio_selection",None)=="A0" else None)
         self.pipe_separate.toggled.connect(lambda:self._choose_audio_detail("A0") if getattr(self,"_audio_selection",None)=="A0" else None)
-        self._field(voice,"Mức tách",self.separation_mode,"separationMode")
+        self._pipeline_field(voice,"Mức tách",self.separation_mode,"separationMode")
         self._audio_slider(voice,"Tốc độ video",self.controls["speed"],"sourceVideoSpeed",unit="x")
+        column.addSpacing(10)
         voice = self._audio_section(column,"Giọng lồng")
         self.tts_fit = QComboBox()
         self.tts_fit.addItem("Khớp theo câu","fit")
         self.tts_fit.addItem("Giọng đều","natural")
         self.tts_fit.addItem("Không khớp","off")
         self.tts_fit.setCurrentIndex(1)
-        self._field(voice, "Khớp giọng", self.tts_fit, "voiceFit")
+        self._pipeline_field(voice, "Khớp giọng", self.tts_fit, "voiceFit")
         self.tts_speed = QDoubleSpinBox()
         self.tts_speed.setRange(.25, 4)
         self.tts_speed.setSingleStep(.05)
@@ -1350,7 +1481,14 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
         self._audio_slider(voice, "Tốc độ giọng", self.tts_speed, "voiceSpeed",unit="x")
         self.voice_max_speed=QDoubleSpinBox()
         self.voice_max_speed.setRange(1,4); self.voice_max_speed.setValue(2); self.voice_max_speed.setSingleStep(.05)
-        self._audio_slider(voice,"Tốc độ tối đa",self.voice_max_speed,"voiceMaxSpeed",unit="x")
+        maximum_speed = self._audio_slider(voice, "Tốc độ tối đa", self.voice_max_speed, "voiceMaxSpeed", unit="x")
+        def show_maximum_speed():
+            for index in range(maximum_speed._field_row.count()):
+                widget = maximum_speed._field_row.itemAt(index).widget()
+                if widget is not None:
+                    widget.setVisible(self.tts_fit.currentData() == "fit")
+        self.tts_fit.currentIndexChanged.connect(show_maximum_speed)
+        show_maximum_speed()
         self.tts_delay = QSpinBox()
         self.tts_delay.setRange(-60000, 60000)
         self.tts_delay.setSingleStep(50)
@@ -1361,7 +1499,7 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
         self.pipe_pronunciation.setMinimumContentsLength(0)
         self.pipe_pronunciation.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self.pipe_pronunciation.currentIndexChanged.connect(self._pronunciation_changed)
-        self._field(voice,"Sửa cách đọc",self.pipe_pronunciation,"voicePronunciation")
+        self._pipeline_field(voice,"Sửa cách đọc",self.pipe_pronunciation,"voicePronunciation")
         self.pipe_pronunciation.setToolTip("Các bảng tạo trong Kịch bản → Sửa cách đọc.")
         for control in (self.voice_parallel,self.tts_speed,self.tts_delay,self.tts_fit,self.separation_mode):
             signal = control.valueChanged if hasattr(control,"valueChanged") else control.currentIndexChanged
@@ -1373,57 +1511,71 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
 
         scroll, column = self._scroll_tab()
         self.pipeline_tabs.addTab(scroll, "Hệ thống")
-        output = self._section(column, "Hệ thống / Xuất video")
-        output.addWidget(self._clone(self.pipe_export, "pipelineExport"))
-        self._field(output, "Định dạng", self.enc_format, "exportFormat")
-        self._field(output, "Codec", self.enc_codec, "exportCodec")
-        self._field(output, "Thiết bị", self.enc_device, "exportDevice")
-        self._field(output,"Khung hình",self.resolution,"exportResolution")
-        self._field(output,"Khung / giây",self.fps,"exportFps")
-        self.export_advanced_button = QToolButton()
-        self.export_advanced_button.setText("Thông số mã hóa nâng cao")
+        workers_frame = QFrame()
+        workers_frame.setObjectName("systemWorkers")
+        workers_frame.setStyleSheet("QFrame#systemWorkers {background:#353535;border-radius:9px;}")
+        workers = QVBoxLayout(workers_frame)
+        workers.setContentsMargins(12, 4, 12, 6)
+        workers.setSpacing(10)
+        column.addWidget(workers_frame)
+        for key, label, default in [("general_workers", "Xử lý chung", 2), ("tts_workers", "Lồng tiếng", 2), ("render_workers", "Xuất video", 2)]:
+            source = QSpinBox()
+            source.setRange(1, 8)
+            source.setValue(default)
+            self.worker_controls[key] = source
+            self._audio_slider(workers, label, source, key, unit="", hint="Số tác vụ "+label.lower()+" chạy đồng thời.")
+        output = self._audio_section(column, "Xuất video", name="exportSection")
+        self._pipeline_field(output, "Định dạng", self.enc_format, "exportFormat",
+                             labels={"mp4": "MP4", "mkv": "MKV", "mov": "MOV", "webm": "WebM"})
+        self._pipeline_field(output, "Độ phân giải", self.resolution, "exportResolution", labels={"Theo video đầu": "Bản gốc"})
+        self._pipeline_field(output, "Tốc độ", self.enc_preset, "encoderPreset",
+                             labels={"veryfast": "Rất nhanh", "fast": "Nhanh", "medium": "Cân bằng", "slow": "Chậm"})
+        self._pipeline_field(output, "Thiết bị encode", self.enc_device, "exportDevice",
+                             labels={"auto": "Tự động", "cpu": "CPU", "nvidia": "NVIDIA", "qsv": "Intel", "amf": "AMD"})
+        self._pipeline_field(output, "Codec", self.enc_codec, "exportCodec",
+                             labels={"h264": "H.264", "hevc": "H.265", "vp9": "VP9"})
+        self._pipeline_field(output, "FPS", self.fps, "exportFps")
+        quality_preset = QComboBox()
+        quality_preset.setObjectName("exportQualityPreset")
+        for label, quality in (("Tùy chỉnh", None), ("Cao", 18), ("Cân bằng", 23), ("Nhỏ gọn", 28)):
+            quality_preset.addItem(label, quality)
+        def sync_quality_preset(value):
+            quality_preset.blockSignals(True)
+            quality_preset.setCurrentIndex(max(0, quality_preset.findData(value)))
+            quality_preset.blockSignals(False)
+        quality_preset.currentIndexChanged.connect(
+            lambda: self.enc_quality.setValue(quality_preset.currentData()) if quality_preset.currentData() is not None else None)
+        self.enc_quality.valueChanged.connect(sync_quality_preset)
+        sync_quality_preset(self.enc_quality.value())
+        self._pipeline_field(output, "Chất lượng xuất", quality_preset, direct=True)
+
+        advanced = self._audio_section(column, "Nâng cao", name="advancedEncoderSection")
+        self.export_advanced_button = advanced._heading
         self.export_advanced_button.setObjectName("toggleAdvancedEncoder")
-        self.export_advanced_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.export_advanced_button.setArrowType(Qt.ArrowType.RightArrow)
-        self.export_advanced_button.setCheckable(True)
-        output.addWidget(self.export_advanced_button)
-        advanced_encoder = QWidget()
-        advanced_encoder.setObjectName("advancedEncoderOptions")
-        advanced_encoder_layout = QVBoxLayout(advanced_encoder)
-        advanced_encoder_layout.setContentsMargins(0,5,0,5)
-        advanced_encoder_layout.setSpacing(8)
-        self._field(advanced_encoder_layout,"Kiểm soát bitrate",self.enc_mode,"encoderMode")
-        self._field(advanced_encoder_layout,"Chất lượng CRF / CQ",self.enc_quality,"exportQuality")
-        bitrate = self._field(advanced_encoder_layout,"Bitrate",self.enc_bitrate,"encoderBitrate")
+        advanced._body.setObjectName("advancedEncoderOptions")
+        advanced._body.setStyleSheet("background:transparent;")
+        self._pipeline_field(advanced, "Kiểm soát bitrate", self.enc_mode, "encoderMode",
+                             labels={"crf": "Chất lượng", "vbr": "Biến đổi (VBR)", "cbr": "Cố định (CBR)"})
+        self._audio_slider(advanced, "Chất lượng", self.enc_quality, "exportQuality", unit="Q",
+                           hint="CRF / CQ: số nhỏ giữ nhiều chi tiết hơn và tạo tệp lớn hơn.")
+        bitrate = self._pipeline_field(advanced, "Bitrate", self.enc_bitrate, "encoderBitrate")
         bitrate.setToolTip("Ví dụ 5M hoặc 2500k. Được dùng ở chế độ VBR / CBR.")
-        maxrate = self._field(advanced_encoder_layout,"Trần bitrate",self.enc_maxrate,"encoderMaxrate")
+        maxrate = self._pipeline_field(advanced, "Trần bitrate", self.enc_maxrate, "encoderMaxrate")
         maxrate.setToolTip("Ví dụ 8M; để trống khi dùng CRF không giới hạn bitrate.")
-        self._field(advanced_encoder_layout,"Preset tốc độ",self.enc_preset,"encoderPreset")
-        self.encoder_bframes = self._clone(self.enc_bframes,"encoderBframes")
-        self.encoder_bframes.setToolTip("Bật: dùng mặc định của encoder; một số preset nhanh có thể vẫn không tạo B-frames. Tắt: H.264/H.265 xuất với -bf 0. VP9 không dùng tùy chọn này.")
-        advanced_encoder_layout.addWidget(self.encoder_bframes)
-        self.enc_codec.currentTextChanged.connect(lambda codec:self.encoder_bframes.setEnabled(codec!='vp9'))
-        output.addWidget(advanced_encoder)
-        advanced_encoder.hide()
-        self.export_advanced_button.toggled.connect(lambda checked:(advanced_encoder.setVisible(checked),self.export_advanced_button.setArrowType(Qt.ArrowType.DownArrow if checked else Qt.ArrowType.RightArrow)))
+        self.encoder_bframes = self._clone(self.enc_bframes, "encoderBframes")
+        self.encoder_bframes.setToolTip("Tắt để xuất H.264/H.265 với -bf 0; VP9 không dùng B-frames.")
+        advanced.addWidget(self.encoder_bframes)
+        destination = self._audio_section(column, "Lưu và tác vụ", expanded=False, name="outputDestination")
+        destination.addWidget(self._clone(self.pipe_export, "pipelineExport"))
         folder = self._clone(self.pipe_folder, "outputFolder")
         folder.setToolTip("Thư mục lưu kết quả")
-        output.addWidget(folder)
-        output.addWidget(_button("Chọn thư mục lưu…", self._choose_batch_folder))
-        output.addWidget(_button("Tiếp tục Pipeline…", self.resume_pipeline))
-        if hasattr(self,"open_gpu_performance"):
-            performance = _button("Hiệu năng GPU…",self.open_gpu_performance)
+        destination.addWidget(folder)
+        destination.addWidget(_button("Chọn thư mục lưu…", self._choose_batch_folder))
+        destination.addWidget(_button("Tiếp tục Pipeline…", self.resume_pipeline))
+        if hasattr(self, "open_gpu_performance"):
+            performance = _button("Hiệu năng GPU…", self.open_gpu_performance)
             performance.setObjectName("openGpuPerformance")
-            output.addWidget(performance)
-        workers = self._section(column, "Luồng xử lý")
-        for key, label, default, maximum in [("general_workers", "Tổng luồng", 2, 8), ("tts_workers", "Lồng tiếng", 2, 8), ("render_workers", "Xuất video", 2, 8), ("recognition_workers", "Nhận dạng", 1, 2)]:
-            source = self.worker_controls.get(key)
-            if source is None:
-                source = QSpinBox()
-                source.setRange(1, maximum)
-                source.setValue(default)
-            self.worker_controls[key] = source
-            self._field(workers, label, source, key)
+            destination.addWidget(performance)
         column.addStretch()
         return container
 
@@ -1728,8 +1880,9 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
         row = QHBoxLayout()
         row.setSpacing(6)
         self.add_video_button = _button("Thêm video", self.import_files)
-        self.add_video_button.setIcon(line_icon("add"))
+        self.add_video_button.setIcon(line_icon("folder", "#ffda70"))
         self.add_video_button.setObjectName("addVideo")
+        self.add_video_button.setMinimumWidth(132)
         self._translated(self.add_video_button, "Thêm video", "Add video")
         row.addWidget(self.add_video_button)
         separator = QFrame()
@@ -1743,19 +1896,23 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
         ]:
             button = _button(vi, lambda checked=False, s=stage: self.run_pipeline(s))
             button.setObjectName(name)
+            button.setMinimumWidth({"runRecognize": 140, "runTranslate": 87, "runDub": 128}[name])
             self._translated(button, vi, en)
             row.addWidget(button)
         self.run_all_button = _button("📤 Xuất (0)", lambda: self.run_pipeline("all"), primary=True)
+        self.run_all_button.setMinimumWidth(113)
         self.run_all_button.setProperty("qaName", "runAll")
         self.run_all_button.setAccessibleName("runAll")
         row.addWidget(self.run_all_button)
-        self.stop_batch_button = _button("⏹ Dừng", self.cancel_job, "danger")
+        self.stop_batch_button = _button("⏹ Dừng", self.cancel_job, "stopBatch")
+        self.stop_batch_button.setMinimumWidth(90)
         self.stop_batch_button.setProperty("qaName", "stopBatch")
         self._translated(self.stop_batch_button, "⏹ Dừng", "⏹ Stop")
         self.stop_batch_button.setEnabled(False)
         row.addWidget(self.stop_batch_button)
         self.batch_progress = QLabel("Sẵn sàng")
         self.batch_progress.setObjectName("batchStatus")
+        self.batch_progress.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.batch_progress.setStyleSheet("color:#949494;font-size:11px;")
         self.batch_progress.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Preferred)
         row.addWidget(self.batch_progress,1)
@@ -2640,6 +2797,9 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
         self.context_frames.setChecked(bool(config.get("image_context",False)) and config.get("provider","google") != "google")
         self.context_frames.setEnabled(config.get("provider","google") != "google")
         self.context_frames.blockSignals(False)
+        self.context_switch.setChecked(self.context_frames.isChecked())
+        self.translation_batch_control.sync_from_source(self.batch_request.value())
+        self.translation_workers_control.sync_from_source(self.request_workers.value())
 
     def _provider_changed(self, *_):
         self._dialog_stores()
@@ -2959,6 +3119,8 @@ class IndependentWindow(SubtitleDetailMixin, DialogMixin, StudioWindow):
             return
         busy = self.active_job is not None
         self.run_all_button.setEnabled(not busy and bool(self._selected_paths) and bool(self.pipe_folder.text().strip()))
+        for name in ("runRecognize", "runTranslate", "runDub"):
+            self.findChild(QPushButton, name).setEnabled(not busy and bool(self._selected_paths))
         self.stop_batch_button.setEnabled(busy)
         if busy:
             self.batch_progress.setText(f"{self.progress.value()}%  ·  {self.job_title.text()}")

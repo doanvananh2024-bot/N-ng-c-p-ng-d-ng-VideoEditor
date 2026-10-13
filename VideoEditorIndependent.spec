@@ -10,7 +10,7 @@ gpu_dependencies = root.parent / 'gpu-deps'
 sys.path.insert(0, str(gpu_dependencies))
 speech_dependencies=root.parent/'speech-deps'
 sys.path.insert(0,str(speech_dependencies))
-datas = [(str(root / 'tools'), 'tools'),(str(root / 'ui_fonts'),'ui_fonts')]
+datas = [(str(root / 'tools'), 'tools'),(str(root / 'ui_fonts'),'ui_fonts'),(str(root / 'ui_icons'),'ui_icons')]
 binaries = []
 hiddenimports = collect_submodules('numpy.core', filter=lambda name: '.tests' not in name)
 hiddenimports += ['desktop', 'dialogs', 'preview_canvas', 'voice_catalog', 'subtitle_editor', 'tts_providers', 'local_tts', 'gpu_runtime', 'studio_ui', 'render_pipeline', 'workflow',
